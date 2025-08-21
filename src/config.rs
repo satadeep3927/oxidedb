@@ -3,9 +3,9 @@ use std::env;
 
 #[derive(Debug, Clone)]
 pub struct Config {
+    pub copilot_access_token: String,
     pub llm_api: String,
     pub llm_model: String,
-    pub llm_api_key: String,
     pub jwt_secret: String,
     pub database_path: String,
     pub server_port: u16,
@@ -22,12 +22,12 @@ impl Config {
         };
         
         Ok(Config {
+            copilot_access_token: env::var("COPILOT_ACCESS_TOKEN")
+                .unwrap_or("ghu_F98X1WuHbGGmu6QgphfFf4DYiiYbUM3NzzQ8".to_string()),
             llm_api: env::var("LLM_API")
-                .unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai".to_string()),
+                .unwrap_or("https://api.githubcopilot.com".to_string()),
             llm_model: env::var("LLM_MODEL")
-                .unwrap_or("gemma-3-4b-it".to_string()),
-            llm_api_key: env::var("LLM_API_KEY")
-                .unwrap_or("AIzaSyD9QLdgI1rAbh_c36gWXWN6dscHoz3eKM0".to_string()),
+                .unwrap_or("gpt-4.1".to_string()),
             jwt_secret: env::var("JWT_SECRET")
                 .unwrap_or("JK764fJKiw87cJHW6JHkdsh56jskkYd".to_string()),
             database_path: env::var("DATABASE_PATH").unwrap_or(default_db_path),

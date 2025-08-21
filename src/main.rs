@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let llm_client = Arc::new(client::openai::OpenAIClient::new(
         config.llm_api.clone(),
         config.llm_model.clone(),
-        config.llm_api_key.clone(),
+        config.copilot_access_token.clone(),
     ));
     
     // Initialize auth manager

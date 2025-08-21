@@ -1,6 +1,8 @@
 use crate::error::{CortexError, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
+use chrono::Utc;
 
 #[derive(Debug, Serialize)]
 struct ChatMessage {
@@ -33,20 +35,92 @@ pub struct OpenAIClient {
     client: Client,
     api_url: String,
     model: String,
-    api_key: String,
+    api_key: Mutex<String>,
+    copilot_token: String,
 }
 
 impl OpenAIClient {
-    pub fn new(api_url: String, model: String, api_key: String) -> Self {
+    pub fn new(api_url: String, model: String, copilot_token: String) -> Self {
         Self {
             client: Client::new(),
             api_url,
             model,
-            api_key,
+            copilot_token,
+            api_key: Mutex::new(String::new()), // Initialize with empty API key
+        }
+    }
+
+    pub fn extract_exp_value(&self) -> Option<i64> {
+        let api_key = self.api_key.lock().ok()?;
+        let pairs = api_key.split(";");
+        for pair in pairs {
+            if let Some((key, value)) = pair.split_once('=') {
+                if key.trim() == "exp" {
+                    return value.trim().parse::<i64>().ok();
+                }
+            }
+        }
+        None
+    }
+
+    pub fn is_token_valid(&self) -> bool {
+        let api_key = match self.api_key.lock() {
+            Ok(key) => key,
+            Err(_) => return false,
+        };
+        
+        if api_key.contains("exp") {
+            if let Some(exp) = self.extract_exp_value() {
+                let current_time = Utc::now().timestamp();
+                return exp > current_time;
+            }
+        }
+        false
+    }
+
+    pub async fn exchange_copilot_token(&self) -> Result<()> {
+        if self.is_token_valid() {
+            println!("Using cached Copilot token");
+            return Ok(());
+        }
+
+        let response = self
+            .client
+            .get("https://api.github.com/copilot_internal/v2/token")
+            .header("authorization", format!("token {}", self.copilot_token))
+            .header("editor-version", "Neovim/0.6.1")
+            .header("editor-plugin-version", "copilot.vim/1.16.0")
+            .header("user-agent", "GithubCopilot/1.155.0")
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            eprintln!("Failed to exchange Copilot token: {}", error_text);
+            return Err(CortexError::InvalidRequest(format!(
+                "Failed to exchange Copilot token: {}",
+                error_text
+            )));
+        }
+        let token_data: serde_json::Value = response.json().await?;
+        if let Some(token) = token_data.get("token").and_then(|t| t
+            .as_str())
+        {
+            if let Ok(mut api_key) = self.api_key.lock() {
+                *api_key = token.to_string();
+            }
+            println!("Successfully exchanged Copilot token");
+            return Ok(());
+        } else {
+            eprintln!("Invalid response from Copilot token exchange");
+            return Err(CortexError::InvalidRequest(
+                "Invalid response from Copilot token exchange".to_string(),
+            ));
         }
     }
 
     pub async fn generate_sql(&self, natural_query: &str, schema_info: &str) -> Result<String> {
+        self.exchange_copilot_token().await?;
+        
         let system_prompt = format!(
             "You are a SQL expert. Convert natural language queries to SQL.
             
@@ -62,23 +136,33 @@ Rules:
             schema_info
         );
 
-        let messages = vec![ChatMessage {
-            role: "user".to_string(),
-            content: format!(
-                "System: {}\n\nQuery: {}",
-                system_prompt, natural_query
-            ),
-        }];
+        let messages = vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: system_prompt,
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: natural_query.to_string(),
+            },
+        ];
 
         let request = ChatRequest {
             model: self.model.clone(),
             messages,
         };
 
+        let api_key = {
+            let guard = self.api_key.lock().map_err(|_| {
+                CortexError::InvalidRequest("Failed to acquire API key lock".to_string())
+            })?;
+            guard.clone()
+        };
+
         let response = self
             .client
             .post(&format!("{}/chat/completions", self.api_url))
-            .header("Authorization", &format!("Bearer {}", self.api_key))
+            .header("Authorization", &format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
