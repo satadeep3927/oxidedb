@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  cortexdb:
+    build: .
+    container_name: cortexdb
+    ports:
+      - "3030:3030"
+    volumes:
+      - cortexdb_data:/data
+      - ./.env:/app/.env:ro
+    environment:
+      - RUST_LOG=info
+      - DATABASE_PATH=/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3030/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  cortexdb_data:
+    driver: local
