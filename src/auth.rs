@@ -15,7 +15,7 @@ pub struct AuthManager {
 
 impl AuthManager {
     pub fn new(jwt_secret: String, data_path: &str, root_username: String, root_password: String) -> Result<Self> {
-        let db_path = format!("{}/auth.db", data_path);
+        let db_path = format!("{}/AUTH", data_path);
         let auth_manager = AuthManager {
             jwt_secret,
             db_path,

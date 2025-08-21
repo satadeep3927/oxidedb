@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use reqwest::Client;
 use crate::error::{CortexError, Result};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]
 struct ChatMessage {
@@ -11,9 +11,7 @@ struct ChatMessage {
 #[derive(Debug, Serialize)]
 struct ChatRequest {
     model: String,
-    messages: Vec<ChatMessage>,
-    max_tokens: u32,
-    temperature: f32,
+    messages: Vec<ChatMessage>
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,7 +45,7 @@ impl OpenAIClient {
             api_key,
         }
     }
-    
+
     pub async fn generate_sql(&self, natural_query: &str, schema_info: &str) -> Result<String> {
         let system_prompt = format!(
             "You are a SQL expert. Convert natural language queries to SQL.
@@ -63,7 +61,7 @@ Rules:
 5. For SELECT queries, always limit results to 100 rows unless specified otherwise",
             schema_info
         );
-        
+
         let messages = vec![
             ChatMessage {
                 role: "system".to_string(),
@@ -74,39 +72,46 @@ Rules:
                 content: natural_query.to_string(),
             },
         ];
-        
+
         let request = ChatRequest {
             model: self.model.clone(),
-            messages,
-            max_tokens: 500,
-            temperature: 0.1,
+            messages
         };
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&format!("{}/chat/completions", self.api_url))
             .header("Authorization", &format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
             .await?;
-        
+
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(CortexError::InvalidRequest(format!("LLM API error: {}", error_text)));
+            eprintln!("OpenAI API error: {}", error_text);
+            return Err(CortexError::InvalidRequest(format!(
+                "LLM API error: {}",
+                error_text
+            )));
         }
-        
+
         let chat_response: ChatResponse = response.json().await?;
-        
+
         if let Some(choice) = chat_response.choices.first() {
             let sql = choice.message.content.trim();
             // Clean up the SQL (remove markdown code blocks if present)
-            let sql = sql.trim_start_matches("```sql")
-                        .trim_start_matches("```")
-                        .trim_end_matches("```")
-                        .trim();
+            let sql = sql
+                .trim_start_matches("```sqlite")
+                .trim_start_matches("```sql")
+                .trim_start_matches("```")
+                .trim_end_matches("```")
+                .trim();
             Ok(sql.to_string())
         } else {
-            Err(CortexError::InvalidRequest("No response from LLM".to_string()))
+            Err(CortexError::InvalidRequest(
+                "No response from LLM".to_string(),
+            ))
         }
     }
 }

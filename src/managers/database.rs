@@ -52,9 +52,9 @@ impl DatabaseManager {
     
     fn get_database_path(&self, namespace: &str, database: &str) -> String {
         let mut path = PathBuf::from(&self.base_path);
-        path.push(namespace);
+        path.push(namespace.to_uppercase());
         std::fs::create_dir_all(&path).ok();
-        path.push(format!("{}.db", database));
+        path.push(database.to_uppercase());
         path.to_string_lossy().to_string()
     }
     
@@ -89,10 +89,8 @@ impl DatabaseManager {
                 let entry = entry?;
                 if entry.file_type()?.is_file() {
                     if let Some(name) = entry.file_name().to_str() {
-                        if name.ends_with(".db") {
-                            let db_name = name.trim_end_matches(".db");
-                            databases.push(db_name.to_string());
-                        }
+                        // Database files are now uppercase without extensions
+                        databases.push(name.to_string());
                     }
                 }
             }
