@@ -6,6 +6,7 @@ mod database;
 mod handlers;
 mod models;
 mod error;
+mod cli;
 
 use std::sync::Arc;
 use dotenv::dotenv;
@@ -13,6 +14,10 @@ use dotenv::dotenv;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
+    
+    // Check for CLI mode
+    let args: Vec<String> = std::env::args().collect();
+    let cli_mode = args.len() > 1 && args[1] == "cli";
     
     // Initialize configuration
     let config = config::Config::from_env()?;
@@ -35,14 +40,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.root_password.clone()
     )?);
     
-    // Setup routes
-    let routes = handlers::routes(db_manager, llm_client, auth_manager);
-    
-    println!("CortexDB server starting on port {}", config.server_port);
-    
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], config.server_port))
-        .await;
+    if cli_mode {
+        // Start CLI interface
+        let mut cli = cli::CliInterface::new(
+            db_manager,
+            llm_client,
+            auth_manager,
+        );
+        cli.run().await?;
+    } else {
+        // Start server mode
+        let routes = handlers::routes(db_manager, llm_client, auth_manager);
+        
+        println!("CortexDB server starting on port {}", config.server_port);
+        println!("💡 Tip: Use 'cortexdb cli' to start interactive CLI mode");
+        
+        warp::serve(routes)
+            .run(([127, 0, 0, 1], config.server_port))
+            .await;
+    }
     
     Ok(())
 }
