@@ -15,6 +15,12 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self> {
+        // Get default database path in home directory
+        let default_db_path = match dirs::home_dir() {
+            Some(home) => home.join(".cortexdb").to_string_lossy().to_string(),
+            None => "./data".to_string(), // Fallback to current directory
+        };
+        
         Ok(Config {
             llm_api: env::var("LLM_API")
                 .unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai".to_string()),
@@ -24,7 +30,7 @@ impl Config {
                 .unwrap_or("AIzaSyD9QLdgI1rAbh_c36gWXWN6dscHoz3eKM0".to_string()),
             jwt_secret: env::var("JWT_SECRET")
                 .unwrap_or("JK764fJKiw87cJHW6JHkdsh56jskkYd".to_string()),
-            database_path: env::var("DATABASE_PATH").unwrap_or("~/.contextdb".to_string()),
+            database_path: env::var("DATABASE_PATH").unwrap_or(default_db_path),
             server_port: env::var("SERVER_PORT")
                 .unwrap_or_else(|_| "11597".to_string())
                 .parse()
