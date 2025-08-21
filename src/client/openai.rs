@@ -164,6 +164,9 @@ Rules:
             .post(&format!("{}/chat/completions", self.api_url))
             .header("Authorization", &format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
+            .header("editor-version", "Neovim/0.6.1")
+            .header("editor-plugin-version", "copilot.vim/1.16.0")
+            .header("user-agent", "GithubCopilot/1.155.0")
             .json(&request)
             .send()
             .await?;
