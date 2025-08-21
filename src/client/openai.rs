@@ -11,7 +11,7 @@ struct ChatMessage {
 #[derive(Debug, Serialize)]
 struct ChatRequest {
     model: String,
-    messages: Vec<ChatMessage>
+    messages: Vec<ChatMessage>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,20 +62,17 @@ Rules:
             schema_info
         );
 
-        let messages = vec![
-            ChatMessage {
-                role: "system".to_string(),
-                content: system_prompt,
-            },
-            ChatMessage {
-                role: "user".to_string(),
-                content: natural_query.to_string(),
-            },
-        ];
+        let messages = vec![ChatMessage {
+            role: "user".to_string(),
+            content: format!(
+                "System: {}\n\nQuery: {}",
+                system_prompt, natural_query
+            ),
+        }];
 
         let request = ChatRequest {
             model: self.model.clone(),
-            messages
+            messages,
         };
 
         let response = self

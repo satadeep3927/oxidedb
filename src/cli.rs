@@ -2,7 +2,7 @@ use crate::auth::AuthManager;
 use crate::client::openai::OpenAIClient;
 use crate::error::{CortexError, Result};
 use crate::managers::database::DatabaseManager;
-use crate::models::{QueryRequest, LoginRequest, QueryMode as ModelsQueryMode};
+use crate::models::{QueryRequest, LoginRequest, QueryMode as ModelsQueryMode, CreateUserRequest};
 use serde_json::Value;
 use std::io::{self, Write};
 use std::sync::Arc;
@@ -52,7 +52,7 @@ impl CliInterface {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        println!("🚀 Welcome to CortexDB Interactive CLI");
+        println!("Welcome to CortexDB Interactive CLI");
         println!("Type '/help' for available commands");
         self.print_status();
 
@@ -71,11 +71,11 @@ impl CliInterface {
 
             if input.starts_with('/') {
                 if let Err(e) = self.handle_command(input).await {
-                    println!("❌ Error: {}", e);
+                    println!("Error: {}", e);
                 }
             } else {
                 if let Err(e) = self.handle_query(input).await {
-                    println!("❌ Query Error: {}", e);
+                    println!("Query Error: {}", e);
                 }
             }
         }
@@ -101,7 +101,7 @@ impl CliInterface {
 
     fn print_status(&self) {
         println!();
-        println!("📊 Current Status:");
+        println!("Current Status:");
         println!("   Mode: {}", self.current_mode);
         println!("   User: {}", self.username.as_ref().unwrap_or(&"Not logged in".to_string()));
         println!("   Namespace: {}", self.current_namespace.as_ref().unwrap_or(&"None".to_string()));
@@ -116,15 +116,16 @@ impl CliInterface {
             Some("/help") => self.show_help(),
             Some("/set") => self.handle_set_command(&parts[1..]).await?,
             Some("/login") => self.handle_login(&parts[1..]).await?,
+            Some("/register") => self.handle_register(&parts[1..]).await?,
             Some("/logout") => self.handle_logout(),
             Some("/use") => self.handle_use_command(&parts[1..])?,
             Some("/show") => self.handle_show_command(&parts[1..]).await?,
             Some("/status") => self.print_status(),
             Some("/quit") | Some("/exit") => {
-                println!("👋 Goodbye!");
+                println!("Goodbye!");
                 std::process::exit(0);
             }
-            _ => println!("❓ Unknown command: {}. Type '/help' for available commands.", command),
+            _ => println!("Unknown command: {}. Type '/help' for available commands.", command),
         }
         
         Ok(())
@@ -132,29 +133,30 @@ impl CliInterface {
 
     fn show_help(&self) {
         println!();
-        println!("📖 CortexDB CLI Commands:");
+        println!("CortexDB CLI Commands:");
         println!();
-        println!("🔧 Settings:");
+        println!("Settings:");
         println!("   /set ai              - Switch to AI query mode");
         println!("   /set sql             - Switch to SQL query mode");
         println!();
-        println!("🔐 Authentication:");
+        println!("Authentication:");
+        println!("   /register <username> - Register a new user account");
         println!("   /login <username>    - Login to CortexDB");
         println!("   /logout              - Logout from current session");
         println!();
-        println!("🗄️ Database Context:");
+        println!("Database Context:");
         println!("   /use <namespace> <database> - Set current namespace and database");
         println!();
-        println!("📊 Information:");
+        println!("Information:");
         println!("   /show databases      - List all available databases");
         println!("   /show namespaces     - List all available namespaces");
         println!("   /show tables         - List tables in current database");
         println!("   /status              - Show current session status");
         println!();
-        println!("🚪 Exit:");
+        println!("Exit:");
         println!("   /quit, /exit         - Exit the CLI");
         println!();
-        println!("💡 Query Examples:");
+        println!("Query Examples:");
         println!("   CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)");
         println!("   SELECT * FROM users");
         println!("   Show me all users with age greater than 25");
@@ -165,27 +167,114 @@ impl CliInterface {
         match args.get(0) {
             Some(&"ai") => {
                 self.current_mode = QueryMode::Ai;
-                println!("🤖 Switched to AI query mode");
+                println!("Switched to AI query mode");
             }
             Some(&"sql") => {
                 self.current_mode = QueryMode::Sql;
-                println!("🗄️ Switched to SQL query mode");
+                println!("Switched to SQL query mode");
             }
             _ => {
-                println!("❓ Usage: /set [ai|sql]");
+                println!("Usage: /set [ai|sql]");
             }
         }
         Ok(())
     }
 
-    async fn handle_login(&mut self, args: &[&str]) -> Result<()> {
+    async fn handle_register(&mut self, args: &[&str]) -> Result<()> {
         if args.is_empty() {
-            println!("❓ Usage: /login <username>");
+            println!("Usage: /register <username>");
             return Ok(());
         }
 
         let username = args[0];
-        print!("🔐 Password for {}: ", username);
+        print!("Password for new user {}: ", username);
+        io::stdout().flush().unwrap();
+
+        let password = rpassword::read_password().map_err(|_| {
+            CortexError::InvalidRequest("Failed to read password".to_string())
+        })?;
+
+        print!("Confirm password: ");
+        io::stdout().flush().unwrap();
+
+        let confirm_password = rpassword::read_password().map_err(|_| {
+            CortexError::InvalidRequest("Failed to read password confirmation".to_string())
+        })?;
+
+        if password != confirm_password {
+            println!("Error: Passwords do not match!");
+            return Ok(());
+        }
+
+        // Get namespaces for the user
+        print!("Enter namespaces (comma-separated, or press Enter for 'default'): ");
+        io::stdout().flush().unwrap();
+
+        let mut namespaces_input = String::new();
+        io::stdin().read_line(&mut namespaces_input).map_err(|_| {
+            CortexError::InvalidRequest("Failed to read namespaces".to_string())
+        })?;
+
+        let namespaces_input = namespaces_input.trim();
+        let namespaces = if namespaces_input.is_empty() {
+            vec!["default".to_string()]
+        } else {
+            namespaces_input.split(',').map(|s| s.trim().to_string()).collect()
+        };
+
+        // Get root credentials for registration
+        println!("Root authentication required for user registration:");
+        print!("Root username: ");
+        io::stdout().flush().unwrap();
+
+        let mut root_username = String::new();
+        io::stdin().read_line(&mut root_username).map_err(|_| {
+            CortexError::InvalidRequest("Failed to read root username".to_string())
+        })?;
+        let root_username = root_username.trim();
+
+        print!("Root password: ");
+        io::stdout().flush().unwrap();
+
+        let root_password = rpassword::read_password().map_err(|_| {
+            CortexError::InvalidRequest("Failed to read root password".to_string())
+        })?;
+
+        // Verify root credentials
+        if !self.auth_manager.verify_root_auth(root_username, &root_password) {
+            println!("Error: Invalid root credentials!");
+            return Ok(());
+        }
+
+        // Create user request
+        let create_request = CreateUserRequest {
+            username: username.to_string(),
+            password,
+            namespaces,
+        };
+
+        match self.auth_manager.create_user(create_request) {
+            Ok(user) => {
+                println!("Success: User '{}' registered successfully!", user.username);
+                println!("Assigned namespaces: {}", user.namespaces.join(", "));
+                println!("You can now login with: /login {}", user.username);
+            }
+            Err(e) => {
+                println!("Error: Registration failed: {}", e);
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn handle_login(&mut self, args: &[&str]) -> Result<()> {
+        if args.is_empty() {
+            println!("Usage: /login <username>");
+            return Ok(());
+        }
+
+        let username = args[0];
+        print!("Password for {}: ", username);
         io::stdout().flush().unwrap();
 
         let password = rpassword::read_password().map_err(|_| {
@@ -201,14 +290,14 @@ impl CliInterface {
             Ok(response) => {
                 self.auth_token = Some(response.token);
                 self.username = Some(response.user_id);
-                println!("✅ Login successful! Welcome, {}", username);
+                println!("Login successful! Welcome, {}", username);
                 
                 if !response.namespaces.is_empty() {
-                    println!("📁 Available namespaces: {}", response.namespaces.join(", "));
+                    println!("Available namespaces: {}", response.namespaces.join(", "));
                 }
             }
             Err(e) => {
-                println!("❌ Login failed: {}", e);
+                println!("Login failed: {}", e);
             }
         }
 
@@ -220,12 +309,12 @@ impl CliInterface {
         self.username = None;
         self.current_namespace = None;
         self.current_database = None;
-        println!("👋 Logged out successfully");
+        println!("Logged out successfully");
     }
 
     fn handle_use_command(&mut self, args: &[&str]) -> Result<()> {
         if args.len() != 2 {
-            println!("❓ Usage: /use <namespace> <database>");
+            println!("Usage: /use <namespace> <database>");
             return Ok(());
         }
 
@@ -236,7 +325,7 @@ impl CliInterface {
         self.current_namespace = Some(namespace.clone());
         self.current_database = Some(database.clone());
         
-        println!("📂 Switched to namespace: {}, database: {}", namespace, database);
+        println!("Switched to namespace: {}, database: {}", namespace, database);
         Ok(())
     }
 
@@ -244,33 +333,33 @@ impl CliInterface {
         match args.get(0) {
             Some(&"namespaces") => {
                 if self.auth_token.is_none() {
-                    println!("❌ Please login first");
+                    println!("Please login first");
                     return Ok(());
                 }
                 
                 match self.db_manager.list_namespaces() {
                     Ok(namespaces) => {
-                        println!("📁 Available namespaces:");
+                        println!("Available namespaces:");
                         for ns in namespaces {
                             println!("   • {}", ns);
                         }
                     }
-                    Err(e) => println!("❌ Failed to list namespaces: {}", e),
+                    Err(e) => println!("Failed to list namespaces: {}", e),
                 }
             }
             Some(&"databases") => {
                 if let Some(namespace) = &self.current_namespace {
                     match self.db_manager.list_databases(namespace) {
                         Ok(databases) => {
-                            println!("🗄️ Databases in namespace '{}':", namespace);
+                            println!("Databases in namespace '{}':", namespace);
                             for db in databases {
                                 println!("   • {}", db);
                             }
                         }
-                        Err(e) => println!("❌ Failed to list databases: {}", e),
+                        Err(e) => println!("Failed to list databases: {}", e),
                     }
                 } else {
-                    println!("❌ Please set a namespace first with: /use <namespace> <database>");
+                    println!("Please set a namespace first with: /use <namespace> <database>");
                 }
             }
             Some(&"tables") => {
@@ -283,7 +372,7 @@ impl CliInterface {
                             
                             match query_result {
                                 Ok(result) => {
-                                    println!("📋 Tables in {}.{}:", namespace, database);
+                                    println!("Tables in {}.{}:", namespace, database);
                                     if let Value::Array(rows) = result {
                                         for row in rows {
                                             if let Value::Object(obj) = row {
@@ -294,17 +383,17 @@ impl CliInterface {
                                         }
                                     }
                                 }
-                                Err(e) => println!("❌ Failed to list tables: {}", e),
+                                Err(e) => println!("Failed to list tables: {}", e),
                             }
                         }
-                        Err(e) => println!("❌ Failed to access database: {}", e),
+                        Err(e) => println!("Failed to access database: {}", e),
                     }
                 } else {
-                    println!("❌ Please set namespace and database first with: /use <namespace> <database>");
+                    println!("Please set namespace and database first with: /use <namespace> <database>");
                 }
             }
             _ => {
-                println!("❓ Usage: /show [namespaces|databases|tables]");
+                println!("Usage: /show [namespaces|databases|tables]");
             }
         }
         Ok(())
@@ -312,12 +401,12 @@ impl CliInterface {
 
     async fn handle_query(&mut self, query: &str) -> Result<()> {
         if self.auth_token.is_none() {
-            println!("❌ Please login first with: /login <username>");
+            println!("Please login first with: /login <username>");
             return Ok(());
         }
 
         if self.current_namespace.is_none() || self.current_database.is_none() {
-            println!("❌ Please set namespace and database first with: /use <namespace> <database>");
+            println!("Please set namespace and database first with: /use <namespace> <database>");
             return Ok(());
         }
 
@@ -332,7 +421,7 @@ impl CliInterface {
             },
         };
 
-        println!("⏳ Executing {} query...", self.current_mode);
+        println!("Executing {} query...", self.current_mode);
 
         // Get database connection
         let database = self.db_manager.get_database(&namespace, &database)?;
@@ -341,7 +430,7 @@ impl CliInterface {
             // AI mode: convert natural language to SQL first
             let schema_info = ""; // For now, we'll implement this later
             let sql_query = self.llm_client.generate_sql(&query_request.query, schema_info).await?;
-            println!("🤖 Generated SQL: {}", sql_query);
+            println!("Generated SQL: {}", sql_query);
             
             database.execute_query(&sql_query)?
         } else {
@@ -358,10 +447,10 @@ impl CliInterface {
         println!();
         match result {
             Value::Array(rows) if rows.is_empty() => {
-                println!("📭 No results found");
+                println!("No results found");
             }
             Value::Array(rows) => {
-                println!("📊 Query Results ({} rows):", rows.len());
+                println!("Query Results ({} rows):", rows.len());
                 println!();
                 
                 // Print as table if possible
@@ -395,13 +484,13 @@ impl CliInterface {
                 }
             }
             Value::Object(obj) => {
-                println!("📊 Query Result:");
+                println!("Query Result:");
                 for (key, value) in obj {
                     println!("   {}: {}", key, value);
                 }
             }
             _ => {
-                println!("📊 Query Result: {}", serde_json::to_string_pretty(result).unwrap_or_else(|_| "Unknown".to_string()));
+                println!("Query Result: {}", serde_json::to_string_pretty(result).unwrap_or_else(|_| "Unknown".to_string()));
             }
         }
         println!();
