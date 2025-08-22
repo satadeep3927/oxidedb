@@ -25,10 +25,10 @@ enum QueryMode {
 }
 
 impl std::fmt::Display for QueryMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             QueryMode::Sql => write!(f, "SQL"),
-            QueryMode::Ai => write!(f, "AI"),
+            QueryMode::Ai => write!(f, "Query Engine"),
         }
     }
 }
@@ -136,7 +136,7 @@ impl CliInterface {
         println!("CortexDB CLI Commands:");
         println!();
         println!("Settings:");
-        println!("   /set ai              - Switch to AI query mode");
+        println!("   /set ai              - Switch to Query Engine mode");
         println!("   /set sql             - Switch to SQL query mode");
         println!();
         println!("Authentication:");
@@ -167,7 +167,7 @@ impl CliInterface {
         match args.get(0) {
             Some(&"ai") => {
                 self.current_mode = QueryMode::Ai;
-                println!("Switched to AI query mode");
+                println!("Switched to Query Engine mode");
             }
             Some(&"sql") => {
                 self.current_mode = QueryMode::Sql;
@@ -428,11 +428,12 @@ impl CliInterface {
 
         let result = if self.current_mode == QueryMode::Ai {
             // AI mode: convert natural language to SQL first
-            let schema_info = ""; // For now, we'll implement this later
-            let sql_query = self.llm_client.generate_sql(&query_request.query, schema_info).await?;
+            let schema_info = database.get_schema_info().unwrap_or_else(|_| "No schema information available.".to_string());
+            let sql_query = self.llm_client.generate_sql(&query_request.query, &schema_info).await?;
             println!("Generated SQL: {}", sql_query);
             
-            database.execute_query(&sql_query)?
+            // Handle multiple SQL statements
+            self.execute_multiple_sql_statements(&database, &sql_query)?
         } else {
             // SQL mode: execute directly
             database.execute_query(&query_request.query)?
@@ -494,5 +495,44 @@ impl CliInterface {
             }
         }
         println!();
+    }
+
+    fn execute_multiple_sql_statements(&self, database: &crate::database::Database, sql: &str) -> Result<Value> {
+        // Split SQL statements by semicolon and filter out empty ones
+        let statements: Vec<&str> = sql
+            .split(';')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if statements.is_empty() {
+            return Ok(Value::Array(vec![]));
+        }
+
+        if statements.len() == 1 {
+            // Single statement, execute normally
+            return database.execute_query(statements[0]);
+        }
+
+        // Multiple statements - execute them one by one
+        let mut last_result = Value::Array(vec![]);
+        
+        for (i, statement) in statements.iter().enumerate() {
+            println!("Executing statement {}/{}: {}", i + 1, statements.len(), statement);
+            
+            match database.execute_query(statement) {
+                Ok(result) => {
+                    last_result = result;
+                    println!("✓ Statement {} completed successfully", i + 1);
+                }
+                Err(e) => {
+                    println!("✗ Statement {} failed: {}", i + 1, e);
+                    return Err(e);
+                }
+            }
+        }
+        
+        println!("All {} statements executed successfully", statements.len());
+        Ok(last_result)
     }
 }

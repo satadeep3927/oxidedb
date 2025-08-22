@@ -30,6 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.llm_api.clone(),
         config.llm_model.clone(),
         config.copilot_access_token.clone(),
+        config.debug_mode,
     ));
     
     // Initialize auth manager

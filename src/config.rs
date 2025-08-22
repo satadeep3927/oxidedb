@@ -11,6 +11,7 @@ pub struct Config {
     pub server_port: u16,
     pub root_username: String,
     pub root_password: String,
+    pub debug_mode: bool,
 }
 
 impl Config {
@@ -39,6 +40,10 @@ impl Config {
                 .unwrap_or("root".to_string()),
             root_password: env::var("ROOT_PASSWORD")
                 .unwrap_or("root".to_string()),
+            debug_mode: env::var("DEBUG_MODE")
+                .unwrap_or("false".to_string())
+                .parse()
+                .unwrap_or(false),
         })
     }
 }
