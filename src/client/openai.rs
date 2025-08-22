@@ -160,9 +160,7 @@ impl OpenAIClient {
     pub async fn generate_sql(&self, natural_query: &str, schema_info: &str) -> Result<String> {
         if self.debug_mode {
             println!("Starting SQL generation for query: {}", natural_query);
-        }
-        println!("SCHEMA: {schema_info}");
-        
+        }        
         self.exchange_copilot_token().await?;
         
         if self.debug_mode {
