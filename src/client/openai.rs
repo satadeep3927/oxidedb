@@ -216,7 +216,7 @@ Rules:
             .header("editor-version", "vscode/1.103.1")
             .header("editor-plugin-version", "copilot.vim/1.16.0")
             .header("user-agent", "GithubCopilot/1.155.0")
-            .timeout(Duration::from_secs(30)) // Add timeout for SQL generation
+            .timeout(Duration::from_secs(300)) // Add timeout for SQL generation
             .json(&request)
             .send()
             .await?;
