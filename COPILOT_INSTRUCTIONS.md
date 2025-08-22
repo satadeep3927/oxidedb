@@ -37,13 +37,13 @@ Response:
 ```http
 POST /query
 Authorization: Bearer <token>
+ns: my_namespace
+db: my_database
 Content-Type: application/json
 
 {
   "query": "SELECT * FROM users",
-  "mode": "sql",  // "sql" or "ai"
-  "namespace": "my_namespace",
-  "database": "my_database"
+  "mode": "sql"  // "sql" or "ai"
 }
 
 Response:
@@ -224,9 +224,7 @@ impl CortexDB {
 
         let request = serde_json::json!({
             "query": query_string,
-            "mode": self.current_mode.as_str(),
-            "namespace": namespace,
-            "database": database
+            "mode": self.current_mode.as_str()
         });
 
         let response = timeout(
@@ -234,6 +232,8 @@ impl CortexDB {
             self.client
                 .post(&format!("{}/query", self.base_url))
                 .header("Authorization", format!("Bearer {}", token))
+                .header("ns", namespace)
+                .header("db", database)
                 .json(&request)
                 .send()
         ).await
@@ -476,12 +476,14 @@ class CortexDB:
 
         payload = {
             "query": query_string,
-            "mode": self._mode.value,
-            "namespace": self._namespace,
-            "database": self._database
+            "mode": self._mode.value
         }
 
-        headers = {"Authorization": f"Bearer {self._token}"}
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "ns": self._namespace,
+            "db": self._database
+        }
 
         try:
             async with self._session.post(
@@ -759,12 +761,12 @@ export class CortexDB {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.token}`,
+          'ns': this.currentNamespace,
+          'db': this.currentDatabase,
         },
         body: JSON.stringify({
           query: queryString,
           mode: this.currentMode,
-          namespace: this.currentNamespace,
-          database: this.currentDatabase,
         }),
         signal: controller.signal,
       });
@@ -1067,14 +1069,15 @@ func (c *CortexDB) Query(ctx context.Context, queryString string) (*QueryRespons
     }
 
     reqBody := map[string]interface{}{
-        "query":     queryString,
-        "mode":      string(c.currentMode),
-        "namespace": c.currentNamespace,
-        "database":  c.currentDatabase,
+        "query": queryString,
+        "mode":  string(c.currentMode),
     }
 
     var resp QueryResponse
-    err := c.makeRequest(ctx, "POST", "/query", reqBody, &resp, true)
+    err := c.makeRequestWithHeaders(ctx, "POST", "/query", reqBody, &resp, true, map[string]string{
+        "ns": c.currentNamespace,
+        "db": c.currentDatabase,
+    })
     if err != nil {
         return nil, &CortexDBError{
             Type:    "QueryError",
@@ -1143,6 +1146,55 @@ func (c *CortexDB) makeRequest(ctx context.Context, method, path string, reqBody
     req.Header.Set("Content-Type", "application/json")
     if requireAuth && c.token != "" {
         req.Header.Set("Authorization", "Bearer "+c.token)
+    }
+
+    resp, err := c.httpClient.Do(req)
+    if err != nil {
+        return fmt.Errorf("request failed: %w", err)
+    }
+    defer resp.Body.Close()
+
+    respBodyBytes, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return fmt.Errorf("failed to read response body: %w", err)
+    }
+
+    if resp.StatusCode >= 400 {
+        return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBodyBytes))
+    }
+
+    if respBody != nil {
+        if err := json.Unmarshal(respBodyBytes, respBody); err != nil {
+            return fmt.Errorf("failed to unmarshal response: %w", err)
+        }
+    }
+
+    return nil
+}
+
+func (c *CortexDB) makeRequestWithHeaders(ctx context.Context, method, path string, reqBody interface{}, respBody interface{}, requireAuth bool, customHeaders map[string]string) error {
+    var body io.Reader
+    if reqBody != nil {
+        jsonBody, err := json.Marshal(reqBody)
+        if err != nil {
+            return fmt.Errorf("failed to marshal request body: %w", err)
+        }
+        body = bytes.NewReader(jsonBody)
+    }
+
+    req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+    if err != nil {
+        return fmt.Errorf("failed to create request: %w", err)
+    }
+
+    req.Header.Set("Content-Type", "application/json")
+    if requireAuth && c.token != "" {
+        req.Header.Set("Authorization", "Bearer "+c.token)
+    }
+
+    // Add custom headers
+    for key, value := range customHeaders {
+        req.Header.Set(key, value)
     }
 
     resp, err := c.httpClient.Do(req)
