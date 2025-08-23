@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for building CortexDB for Linux
+# Multi-stage Dockerfile for building OxideDB for Linux
 FROM rust:1.82-slim as builder
 
 # Install system dependencies
@@ -6,10 +6,11 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     build-essential \
+    protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
-WORKDIR /usr/src/cortexdb
+WORKDIR /usr/src/oxidedb
 
 # Copy source code
 COPY . .
@@ -26,19 +27,19 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
-RUN useradd -r -s /bin/false cortexdb
+RUN useradd -r -s /bin/false oxidedb
 
 # Create data directory
-RUN mkdir -p /data && chown cortexdb:cortexdb /data
+RUN mkdir -p /data && chown oxidedb:oxidedb /data
 
 # Copy binary from builder stage
-COPY --from=builder /usr/src/cortexdb/target/release/cortexdb /usr/local/bin/cortexdb
+COPY --from=builder /usr/src/oxidedb/target/release/oxidedb /usr/local/bin/oxidedb
 
 # Set proper permissions
-RUN chmod +x /usr/local/bin/cortexdb
+RUN chmod +x /usr/local/bin/oxidedb
 
 # Switch to app user
-USER cortexdb
+USER oxidedb
 
 # Set working directory
 WORKDIR /app
@@ -55,7 +56,7 @@ ENV DATABASE_PATH=/data
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3030/health || exit 1
+    CMD curl -f http://localhost:11597/health || exit 1
 
 # Run the application
-CMD ["/usr/local/bin/cortexdb"]
+CMD ["/usr/local/bin/oxidedb"]

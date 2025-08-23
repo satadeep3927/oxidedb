@@ -1,4 +1,4 @@
-use crate::error::{CortexError, Result};
+use crate::error::{OxideError, Result};
 use std::env;
 
 #[derive(Debug, Clone)]
@@ -18,7 +18,7 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         // Get default database path in home directory
         let default_db_path = match dirs::home_dir() {
-            Some(home) => home.join(".cortexdb").to_string_lossy().to_string(),
+            Some(home) => home.join(".oxidedb").to_string_lossy().to_string(),
             None => "./data".to_string(), // Fallback to current directory
         };
         
@@ -35,7 +35,7 @@ impl Config {
             server_port: env::var("SERVER_PORT")
                 .unwrap_or_else(|_| "11597".to_string())
                 .parse()
-                .map_err(|_| CortexError::InvalidRequest("Invalid SERVER_PORT".to_string()))?,
+                .map_err(|_| OxideError::InvalidRequest("Invalid SERVER_PORT".to_string()))?,
             root_username: env::var("ROOT_USERNAME")
                 .unwrap_or("root".to_string()),
             root_password: env::var("ROOT_PASSWORD")

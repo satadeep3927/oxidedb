@@ -1,5 +1,5 @@
 use crate::models::{User, Claims, CreateUserRequest, LoginRequest, LoginResponse};
-use crate::error::{CortexError, Result};
+use crate::error::{OxideError, Result};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey};
 use chrono::{Utc, Duration};
@@ -63,7 +63,7 @@ impl AuthManager {
         let conn = Connection::open(&self.db_path)?;
         
         let password_hash = hash(&request.password, DEFAULT_COST)
-            .map_err(|e| CortexError::Auth(format!("Failed to hash password: {}", e)))?;
+            .map_err(|e| OxideError::Auth(format!("Failed to hash password: {}", e)))?;
         
         let user = User {
             id: Uuid::new_v4().to_string(),
@@ -106,13 +106,13 @@ impl AuthManager {
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
             ))
-        }).map_err(|_| CortexError::Auth("Invalid credentials".to_string()))?;
+        }).map_err(|_| OxideError::Auth("Invalid credentials".to_string()))?;
         
         let (user_id, username, password_hash, namespaces_json) = user_row;
         
         if !verify(&request.password, &password_hash)
-            .map_err(|e| CortexError::Auth(format!("Password verification failed: {}", e)))? {
-            return Err(CortexError::Auth("Invalid credentials".to_string()));
+            .map_err(|e| OxideError::Auth(format!("Password verification failed: {}", e)))? {
+            return Err(OxideError::Auth("Invalid credentials".to_string()));
         }
         
         let namespaces: Vec<String> = serde_json::from_str(&namespaces_json)?;
@@ -156,7 +156,7 @@ impl AuthManager {
     #[allow(dead_code)]
     pub fn authorize_namespace(&self, claims: &Claims, namespace: &str) -> Result<()> {
         if !claims.namespaces.contains(&namespace.to_string()) {
-            return Err(CortexError::Authorization(
+            return Err(OxideError::Authorization(
                 format!("Access denied to namespace: {}", namespace)
             ));
         }

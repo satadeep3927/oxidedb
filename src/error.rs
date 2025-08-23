@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum CortexError {
+pub enum OxideError {
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
     
@@ -39,4 +39,4 @@ pub enum CortexError {
     InvalidSql(String),
 }
 
-pub type Result<T> = std::result::Result<T, CortexError>;
+pub type Result<T> = std::result::Result<T, OxideError>;

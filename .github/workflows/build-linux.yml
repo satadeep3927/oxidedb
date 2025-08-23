@@ -1,4 +1,4 @@
-name: Build CortexDB for Linux
+name: Build oxidedb for Linux
 
 on:
   push:
@@ -56,16 +56,16 @@ jobs:
     - name: Create release package
       run: |
         mkdir -p release/${{ matrix.target }}
-        cp target/${{ matrix.target }}/release/cortexdb release/${{ matrix.target }}/
+        cp target/${{ matrix.target }}/release/oxidedb release/${{ matrix.target }}/
         cp README.md release/${{ matrix.target }}/
         cp build-linux.sh release/${{ matrix.target }}/
-        cd release && tar -czf cortexdb-${{ matrix.target }}.tar.gz ${{ matrix.target }}
+        cd release && tar -czf oxidedb-${{ matrix.target }}.tar.gz ${{ matrix.target }}
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: cortexdb-${{ matrix.target }}
-        path: release/cortexdb-${{ matrix.target }}.tar.gz
+        name: oxidedb-${{ matrix.target }}
+        path: release/oxidedb-${{ matrix.target }}.tar.gz
     
     - name: Upload to release
       if: github.event_name == 'release'
@@ -74,8 +74,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: release/cortexdb-${{ matrix.target }}.tar.gz
-        asset_name: cortexdb-${{ matrix.target }}.tar.gz
+        asset_path: release/oxidedb-${{ matrix.target }}.tar.gz
+        asset_name: oxidedb-${{ matrix.target }}.tar.gz
         asset_content_type: application/gzip
 
   docker-build:
@@ -101,7 +101,7 @@ jobs:
         platforms: linux/amd64,linux/arm64
         push: ${{ github.event_name == 'release' }}
         tags: |
-          cortexdb/cortexdb:latest
-          cortexdb/cortexdb:${{ github.event.release.tag_name || 'dev' }}
+          oxidedb/oxidedb:latest
+          oxidedb/oxidedb:${{ github.event.release.tag_name || 'dev' }}
         cache-from: type=gha
         cache-to: type=gha,mode=max

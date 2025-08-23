@@ -1,4 +1,4 @@
-use crate::error::{CortexError, Result};
+use crate::error::{OxideError, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -109,7 +109,7 @@ impl OpenAIClient {
                 if self.debug_mode {
                     eprintln!("Failed to exchange token - Status: {}, Error: {}", status, error_text);
                 }
-                return Err(CortexError::InvalidRequest(format!(
+                return Err(OxideError::InvalidRequest(format!(
                     "Failed to exchange token: {} - {}",
                     status, error_text
                 )));
@@ -132,7 +132,7 @@ impl OpenAIClient {
                 if self.debug_mode {
                     eprintln!("Invalid response from token exchange: no token field found");
                 }
-                Err(CortexError::InvalidRequest(
+                Err(OxideError::InvalidRequest(
                     "Invalid response from token exchange".to_string(),
                 ))
             }
@@ -150,7 +150,7 @@ impl OpenAIClient {
                 if self.debug_mode {
                     eprintln!("Token exchange timed out after 15 seconds");
                 }
-                Err(CortexError::InvalidRequest(
+                Err(OxideError::InvalidRequest(
                     "Token exchange timed out".to_string(),
                 ))
             }
@@ -203,7 +203,7 @@ Rules:
 
         let api_key = {
             let guard = self.api_key.lock().map_err(|_| {
-                CortexError::InvalidRequest("Failed to acquire API key lock".to_string())
+                OxideError::InvalidRequest("Failed to acquire API key lock".to_string())
             })?;
             guard.clone()
         };
@@ -226,7 +226,7 @@ Rules:
             if self.debug_mode {
                 eprintln!("Query Engine API error: {}", error_text);
             }
-            return Err(CortexError::InvalidRequest(format!(
+            return Err(OxideError::InvalidRequest(format!(
                 "Query Engine API error: {}",
                 error_text
             )));
@@ -253,7 +253,7 @@ Rules:
             
             Ok(sql.to_string())
         } else {
-            Err(CortexError::InvalidRequest(
+            Err(OxideError::InvalidRequest(
                 "No response from Query Engine".to_string(),
             ))
         }
