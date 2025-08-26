@@ -65,24 +65,34 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
-      - name: Install Linux cross-compilation dependencies
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev build-essential
+          case "${{ matrix.os }}" in
+            ubuntu-latest)
+              sudo apt-get update
+              sudo apt-get install -y pkg-config libssl-dev build-essential protobuf-compiler
 
-          # Install cross-compilation tools
-          if [[ "${{ matrix.target }}" == *"aarch64"* ]]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-          fi
+              # Install cross-compilation tools
+              if [[ "${{ matrix.target }}" == *"aarch64"* ]]; then
+                sudo apt-get install -y gcc-aarch64-linux-gnu
+              fi
 
-          # Install musl tools for musl targets
-          if [[ "${{ matrix.target }}" == *"musl"* ]]; then
-            sudo apt-get install -y musl-tools
-            if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
-              sudo apt-get install -y gcc-aarch64-linux-gnu
-            fi
-          fi
+              # Install musl tools for musl targets
+              if [[ "${{ matrix.target }}" == *"musl"* ]]; then
+                sudo apt-get install -y musl-tools
+                if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+                  sudo apt-get install -y gcc-aarch64-linux-gnu
+                fi
+              fi
+              ;;
+            macos-latest)
+              brew install protobuf
+              ;;
+            windows-latest)
+              # Install protoc using chocolatey
+              choco install protoc
+              ;;
+          esac
 
       - name: Configure cross-compilation environment
         if: matrix.os == 'ubuntu-latest'
@@ -181,7 +191,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
+          sudo apt-get install -y pkg-config libssl-dev protobuf-compiler
 
       - name: Run tests
         run: cargo test --release
@@ -202,6 +212,11 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
 
       - name: Install cargo-audit
         run: cargo install cargo-audit

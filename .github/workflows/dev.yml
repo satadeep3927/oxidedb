@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
+          sudo apt-get install -y pkg-config libssl-dev protobuf-compiler
 
       - name: Check formatting
         run: cargo fmt -- --check
@@ -62,11 +62,20 @@ jobs:
         with:
           key: ${{ matrix.os }}
 
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
+          case "${{ matrix.os }}" in
+            ubuntu-latest)
+              sudo apt-get update
+              sudo apt-get install -y pkg-config libssl-dev protobuf-compiler
+              ;;
+            macos-latest)
+              brew install protobuf
+              ;;
+            windows-latest)
+              choco install protoc
+              ;;
+          esac
 
       - name: Build native binary
         run: cargo build --release

@@ -100,22 +100,31 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev build-essential
+          case "${{ matrix.os }}" in
+            ubuntu-latest)
+              sudo apt-get update
+              sudo apt-get install -y pkg-config libssl-dev build-essential protobuf-compiler
 
-          if [[ "${{ matrix.target }}" == *"aarch64"* ]]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-          fi
+              if [[ "${{ matrix.target }}" == *"aarch64"* ]]; then
+                sudo apt-get install -y gcc-aarch64-linux-gnu
+              fi
 
-          if [[ "${{ matrix.target }}" == *"musl"* ]]; then
-            sudo apt-get install -y musl-tools
-            if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
-              sudo apt-get install -y gcc-aarch64-linux-gnu
-            fi
-          fi
+              if [[ "${{ matrix.target }}" == *"musl"* ]]; then
+                sudo apt-get install -y musl-tools
+                if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+                  sudo apt-get install -y gcc-aarch64-linux-gnu
+                fi
+              fi
+              ;;
+            macos-latest)
+              brew install protobuf
+              ;;
+            windows-latest)
+              choco install protoc
+              ;;
+          esac
 
       - name: Configure cross-compilation
         if: matrix.os == 'ubuntu-latest'
