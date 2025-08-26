@@ -11,6 +11,7 @@ pub struct Database {
     pub info: DatabaseInfo,
     connection: Mutex<Connection>,
 }
+
 impl Database {
     pub fn new(info: DatabaseInfo) -> Result<Self> {
         // Ensure directory exists
