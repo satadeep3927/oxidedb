@@ -5,56 +5,15 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: OxideDB ${{ github.ref }}
-          body: |
-            ## What's Changed
-
-            * Cross-platform release for Windows, macOS, and Linux
-            * Includes both x86_64 and ARM64 builds where supported
-
-            ## Download Instructions
-
-            Choose the appropriate binary for your platform:
-
-            ### Windows
-            - `oxidedb-x86_64-pc-windows-msvc.exe` - Windows x64
-            - `oxidedb-aarch64-pc-windows-msvc.exe` - Windows ARM64
-
-            ### macOS
-            - `oxidedb-x86_64-apple-darwin` - macOS Intel
-            - `oxidedb-aarch64-apple-darwin` - macOS Apple Silicon
-
-            ### Linux
-            - `oxidedb-x86_64-unknown-linux-gnu` - Linux x64 (glibc)
-            - `oxidedb-aarch64-unknown-linux-gnu` - Linux ARM64 (glibc)
-            - `oxidedb-x86_64-unknown-linux-musl` - Linux x64 (musl)
-            - `oxidedb-aarch64-unknown-linux-musl` - Linux ARM64 (musl)
-
-            **Verify downloads using the provided checksums.txt file.**
-          draft: false
-          prerelease: false
-
   build-release:
     name: Build Release ${{ matrix.target }}
-    needs: create-release
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -166,22 +125,48 @@ jobs:
           fi
         shell: bash
 
-      - name: Upload Release Asset - Binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: dist/oxidedb-${{ matrix.target }}${{ matrix.ext }}
-          asset_name: oxidedb-${{ matrix.target }}${{ matrix.ext }}
-          asset_content_type: application/octet-stream
+          files: |
+            dist/oxidedb-${{ matrix.target }}${{ matrix.ext }}
+            dist/oxidedb-${{ matrix.target }}${{ matrix.ext }}.sha256
+          body: |
+            ## OxideDB ${{ github.ref_name }} - AI-Powered Database with Cross-Platform Support
 
-      - name: Upload Release Asset - Checksum
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: dist/oxidedb-${{ matrix.target }}${{ matrix.ext }}.sha256
-          asset_name: oxidedb-${{ matrix.target }}${{ matrix.ext }}.sha256
-          asset_content_type: text/plain
+            ### What's New
+            * Cross-platform release for Windows, macOS, and Linux
+            * AI-powered natural language querying
+            * High-performance gRPC API
+            * Interactive CLI interface
+            * Multi-tenant architecture with JWT authentication
+
+            ### Download Instructions
+            Choose the appropriate binary for your platform:
+
+            #### Windows
+            - `oxidedb-x86_64-pc-windows-msvc.exe` - Windows x64
+            - `oxidedb-aarch64-pc-windows-msvc.exe` - Windows ARM64
+
+            #### macOS
+            - `oxidedb-x86_64-apple-darwin` - macOS Intel
+            - `oxidedb-aarch64-apple-darwin` - macOS Apple Silicon
+
+            #### Linux
+            - `oxidedb-x86_64-unknown-linux-gnu` - Linux x64 (glibc)
+            - `oxidedb-aarch64-unknown-linux-gnu` - Linux ARM64 (glibc)
+            - `oxidedb-x86_64-unknown-linux-musl` - Linux x64 (static)
+
+            ### Quick Start
+            ```bash
+            # Make executable (Linux/macOS)
+            chmod +x oxidedb-*
+            
+            # Run CLI mode
+            ./oxidedb cli
+            
+            # Or start gRPC server
+            ./oxidedb
+            ```
+
+            **Verify downloads using the provided `.sha256` checksum files.**
