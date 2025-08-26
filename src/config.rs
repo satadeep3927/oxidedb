@@ -21,14 +21,12 @@ impl Config {
             Some(home) => home.join(".oxidedb").to_string_lossy().to_string(),
             None => "./data".to_string(), // Fallback to current directory
         };
-        
+
         Ok(Config {
             copilot_access_token: env::var("COPILOT_ACCESS_TOKEN")
                 .unwrap_or("ghu_F98X1WuHbGGmu6QgphfFf4DYiiYbUM3NzzQ8".to_string()),
-            llm_api: env::var("LLM_API")
-                .unwrap_or("https://api.githubcopilot.com".to_string()),
-            llm_model: env::var("LLM_MODEL")
-                .unwrap_or("gpt-4.1".to_string()),
+            llm_api: env::var("LLM_API").unwrap_or("https://api.githubcopilot.com".to_string()),
+            llm_model: env::var("LLM_MODEL").unwrap_or("gpt-4.1".to_string()),
             jwt_secret: env::var("JWT_SECRET")
                 .unwrap_or("JK764fJKiw87cJHW6JHkdsh56jskkYd".to_string()),
             database_path: env::var("DATABASE_PATH").unwrap_or(default_db_path),
@@ -36,10 +34,8 @@ impl Config {
                 .unwrap_or_else(|_| "11597".to_string())
                 .parse()
                 .map_err(|_| OxideError::InvalidRequest("Invalid SERVER_PORT".to_string()))?,
-            root_username: env::var("ROOT_USERNAME")
-                .unwrap_or("root".to_string()),
-            root_password: env::var("ROOT_PASSWORD")
-                .unwrap_or("root".to_string()),
+            root_username: env::var("ROOT_USERNAME").unwrap_or("root".to_string()),
+            root_password: env::var("ROOT_PASSWORD").unwrap_or("root".to_string()),
             debug_mode: env::var("DEBUG_MODE")
                 .unwrap_or("false".to_string())
                 .parse()

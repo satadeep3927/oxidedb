@@ -60,17 +60,17 @@ impl OpenAIClient {
             Ok(key) => key,
             Err(_) => return false,
         };
-        
+
         if api_key.is_empty() {
             return false;
         }
-        
+
         // Check if token was refreshed recently (within 50 minutes - tokens usually last 1 hour)
         let last_refresh = match self.last_token_refresh.lock() {
             Ok(time) => *time,
             Err(_) => return false,
         };
-        
+
         let token_age = last_refresh.elapsed();
         token_age < Duration::from_secs(3000) // 50 minutes
     }
@@ -79,7 +79,7 @@ impl OpenAIClient {
         if self.debug_mode {
             println!("Checking token validity...");
         }
-        
+
         if self.is_token_valid() {
             if self.debug_mode {
                 println!("Using cached token");
@@ -102,19 +102,25 @@ impl OpenAIClient {
                 .timeout(Duration::from_secs(10)) // Add timeout to the request itself
                 .send()
                 .await?;
-                
+
             if !response.status().is_success() {
                 let status = response.status();
-                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
                 if self.debug_mode {
-                    eprintln!("Failed to exchange token - Status: {}, Error: {}", status, error_text);
+                    eprintln!(
+                        "Failed to exchange token - Status: {}, Error: {}",
+                        status, error_text
+                    );
                 }
                 return Err(OxideError::InvalidRequest(format!(
                     "Failed to exchange token: {} - {}",
                     status, error_text
                 )));
             }
-            
+
             let token_data: serde_json::Value = response.json().await?;
             if let Some(token) = token_data.get("token").and_then(|t| t.as_str()) {
                 if let Ok(mut api_key) = self.api_key.lock() {
@@ -145,7 +151,7 @@ impl OpenAIClient {
                     println!("Token exchange operation completed");
                 }
                 result
-            },
+            }
             Err(_) => {
                 if self.debug_mode {
                     eprintln!("Token exchange timed out after 15 seconds");
@@ -160,13 +166,13 @@ impl OpenAIClient {
     pub async fn generate_sql(&self, natural_query: &str, schema_info: &str) -> Result<String> {
         if self.debug_mode {
             println!("Starting SQL generation for query: {}", natural_query);
-        }        
+        }
         self.exchange_copilot_token().await?;
-        
+
         if self.debug_mode {
             println!("Token exchange completed, generating SQL...");
         }
-        
+
         let system_prompt = format!(
             "You are a SQL expert. Convert natural language queries to SQL.
             
@@ -243,14 +249,14 @@ Rules:
                 .trim_start_matches("```")
                 .trim_end_matches("```")
                 .trim();
-            
+
             // Fix SQL string escaping issues
             let sql = self.fix_sql_escaping(sql);
-            
+
             if self.debug_mode {
                 println!("Generated SQL response: {}", sql);
             }
-            
+
             Ok(sql.to_string())
         } else {
             Err(OxideError::InvalidRequest(
