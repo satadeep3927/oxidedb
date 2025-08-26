@@ -15,7 +15,7 @@ serde_json = "1.0"
 rusqlite = { version = "0.37.0", features = ["bundled"] }
 uuid = { version = "1.0", features = ["v4"] }
 bcrypt = "0.17.1"
-jsonwebtoken = "9.0"
+jsonwebtoken = "9.3.1"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2.0.16"
 anyhow = "1.0"
@@ -29,12 +29,3 @@ prost-types = "0.13"
 
 [build-dependencies]
 tonic-build = "0.12"
-
-[target.aarch64-apple-darwin]
-linker = "zig"
-rustflags = [
-    "-C", "link-arg=cc",
-    "-C", "link-arg=-target",
-    "-C", "link-arg=aarch64-apple-darwin",
-    "-C", "link-arg=--sysroot=C:/Users/debas/Documents/oxidedb/oxidedb/sdk",
-]
