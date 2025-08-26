@@ -29,3 +29,12 @@ prost-types = "0.13"
 
 [build-dependencies]
 tonic-build = "0.12"
+
+[target.aarch64-apple-darwin]
+linker = "zig"
+rustflags = [
+    "-C", "link-arg=cc",
+    "-C", "link-arg=-target",
+    "-C", "link-arg=aarch64-apple-darwin",
+    "-C", "link-arg=--sysroot=C:/Users/debas/Documents/oxidedb/oxidedb/sdk",
+]
