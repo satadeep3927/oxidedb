@@ -62,20 +62,20 @@ jobs:
         with:
           key: ${{ matrix.os }}
 
-      - name: Install dependencies
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          case "${{ matrix.os }}" in
-            ubuntu-latest)
-              sudo apt-get update
-              sudo apt-get install -y pkg-config libssl-dev protobuf-compiler
-              ;;
-            macos-latest)
-              brew install protobuf
-              ;;
-            windows-latest)
-              choco install protoc
-              ;;
-          esac
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev protobuf-compiler
+
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: brew install protobuf
+
+      - name: Install Windows dependencies
+        if: matrix.os == 'windows-latest'
+        run: choco install protoc
+        shell: pwsh
 
       - name: Build native binary
         run: cargo build --release
