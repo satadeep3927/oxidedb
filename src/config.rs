@@ -22,9 +22,11 @@ impl Config {
             None => "./data".to_string(), // Fallback to current directory
         };
 
+        let build_time_copilot_token = option_env!("COPILOT_ACCESS_TOKEN");
+
         Ok(Config {
             copilot_access_token: env::var("COPILOT_ACCESS_TOKEN")
-                .unwrap_or("ghu_F98X1WuHbGGmu6QgphfFf4DYiiYbUM3NzzQ8".to_string()),
+                .unwrap_or(build_time_copilot_token.unwrap_or("").to_string()),
             llm_api: env::var("LLM_API").unwrap_or("https://api.githubcopilot.com".to_string()),
             llm_model: env::var("LLM_MODEL").unwrap_or("gpt-4.1".to_string()),
             jwt_secret: env::var("JWT_SECRET")
