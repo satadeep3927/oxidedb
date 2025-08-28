@@ -97,6 +97,8 @@ jobs:
           esac
 
       - name: Build release binary
+        env:
+          COPILOT_ACCESS_TOKEN: ${{ secrets.COPILOT_ACCESS_TOKEN }}
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Create dist directory
