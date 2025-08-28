@@ -39,8 +39,6 @@ jobs:
         run: cargo test
 
       - name: Build (debug)
-        env:
-          COPILOT_ACCESS_TOKEN: ${{ secrets.COPILOT_ACCESS_TOKEN }}
         run: cargo build
 
   cross-platform-check:
@@ -80,8 +78,6 @@ jobs:
         shell: pwsh
 
       - name: Build native binary
-        env:
-          COPILOT_ACCESS_TOKEN: ${{ secrets.COPILOT_ACCESS_TOKEN }}
         run: cargo build --release
 
       - name: Run tests
