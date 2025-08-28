@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package oxidedb;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/struct.proto";
+
+// OxideDB Service Definition
+service OxideDbService {
+  // Authentication
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  
+  // Query Operations
+  rpc ExecuteQuery(QueryRequest) returns (QueryResponse);
+  rpc GetSchemaInfo(SchemaRequest) returns (SchemaResponse);
+  
+  // Database Management
+  rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
+  rpc ListDatabases(ListDatabasesRequest) returns (ListDatabasesResponse);
+  rpc CreateDatabase(CreateDatabaseRequest) returns (CreateDatabaseResponse);
+  rpc DeleteDatabase(DeleteDatabaseRequest) returns (DeleteDatabaseResponse);
+}
+
+// Authentication Messages
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+  string user_id = 2;
+  repeated string namespaces = 3;
+  bool success = 4;
+  string error = 5;
+}
+
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  repeated string namespaces = 3;
+  string root_username = 4;
+  string root_password = 5;
+}
+
+message RegisterResponse {
+  string user_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+// Query Messages
+message QueryRequest {
+  string query = 1;
+  QueryMode mode = 2;
+  string namespace = 3;
+  string database = 4;
+  string token = 5;
+}
+
+enum QueryMode {
+  SQL = 0;
+  AI = 1;
+}
+
+message QueryResponse {
+  bool success = 1;
+  oneof data {
+    google.protobuf.Struct structured_data = 2;
+    google.protobuf.Any any_data = 3;
+  }
+  string error = 4;
+  uint64 execution_time_ms = 5;
+  uint64 rows_affected = 6;
+}
+
+// Schema Messages
+message SchemaRequest {
+  string namespace = 1;
+  string database = 2;
+  string token = 3;
+}
+
+message SchemaResponse {
+  string schema_info = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+// Database Management Messages
+message ListNamespacesRequest {
+  string token = 1;
+}
+
+message ListNamespacesResponse {
+  repeated string namespaces = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message ListDatabasesRequest {
+  string namespace = 1;
+  string token = 2;
+}
+
+message ListDatabasesResponse {
+  repeated string databases = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message CreateDatabaseRequest {
+  string namespace = 1;
+  string database = 2;
+  string token = 3;
+}
+
+message CreateDatabaseResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message DeleteDatabaseRequest {
+  string namespace = 1;
+  string database = 2;
+  string token = 3;
+}
+
+message DeleteDatabaseResponse {
+  bool success = 1;
+  string error = 2;
+}

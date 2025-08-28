@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# CortexDB Linux Build Script
-# Run this script on a Linux system to build CortexDB
+# oxidedb Linux Build Script
+# Run this script on a Linux system to build oxidedb
 
-echo "=== Building CortexDB for Linux ==="
+echo "=== Building oxidedb for Linux ==="
 
 # Check if Rust is installed
 if ! command -v cargo &> /dev/null; then
@@ -32,32 +32,32 @@ elif command -v pacman &> /dev/null; then
 fi
 
 # Build the project
-echo "Building CortexDB..."
+echo "Building oxidedb..."
 cargo build --release
 
 if [ $? -eq 0 ]; then
     echo "✅ Build successful!"
-    echo "📁 Binary location: target/release/cortexdb"
-    echo "📊 Binary size: $(du -h target/release/cortexdb | cut -f1)"
+    echo "📁 Binary location: target/release/oxidedb"
+    echo "📊 Binary size: $(du -h target/release/oxidedb | cut -f1)"
     
     # Create distribution directory
     mkdir -p dist
-    cp target/release/cortexdb dist/
+    cp target/release/oxidedb dist/
     cp -r data dist/ 2>/dev/null || echo "⚠️  No data directory found"
     
     echo ""
     echo "=== Installation Instructions ==="
-    echo "1. Copy the 'cortexdb' binary to your desired location:"
-    echo "   sudo cp dist/cortexdb /usr/local/bin/"
+    echo "1. Copy the 'oxidedb' binary to your desired location:"
+    echo "   sudo cp dist/oxidedb /usr/local/bin/"
     echo ""
     echo "2. Make it executable:"
-    echo "   sudo chmod +x /usr/local/bin/cortexdb"
+    echo "   sudo chmod +x /usr/local/bin/oxidedb"
     echo ""
     echo "3. Create a systemd service (optional):"
-    echo "   sudo nano /etc/systemd/system/cortexdb.service"
+    echo "   sudo nano /etc/systemd/system/oxidedb.service"
     echo ""
-    echo "4. Run CortexDB:"
-    echo "   ./cortexdb"
+    echo "4. Run oxidedb:"
+    echo "   ./oxidedb"
     echo ""
 else
     echo "❌ Build failed!"

@@ -1,4 +1,4 @@
-# CortexDB Linux Deployment Guide
+# OxideDB Linux Deployment Guide
 
 ## Building for Linux
 
@@ -7,7 +7,7 @@
 1. **Clone the repository:**
    ```bash
    git clone <your-repo-url>
-   cd cortexdb
+   cd oxidedb
    ```
 
 2. **Run the build script:**
@@ -18,8 +18,8 @@
 
 3. **Install the binary:**
    ```bash
-   sudo cp dist/cortexdb /usr/local/bin/
-   sudo chmod +x /usr/local/bin/cortexdb
+   sudo cp dist/oxidedb /usr/local/bin/
+   sudo chmod +x /usr/local/bin/oxidedb
    ```
 
 ### Option 2: Using Docker
@@ -31,8 +31,8 @@
 
 2. **Or build Docker image manually:**
    ```bash
-   docker build -t cortexdb .
-   docker run -d -p 3030:3030 -v $(pwd)/data:/data cortexdb
+   docker build -t oxidedb .
+   docker run -d -p 11597:11597 -v $(pwd)/data:/data oxidedb
    ```
 
 ### Option 3: GitHub Actions (Automated)
@@ -63,25 +63,25 @@ Push your code to GitHub and the workflow will automatically build Linux binarie
 
 1. **Create service file:**
    ```bash
-   sudo nano /etc/systemd/system/cortexdb.service
+   sudo nano /etc/systemd/system/oxidedb.service
    ```
 
 2. **Add service configuration:**
    ```ini
    [Unit]
-   Description=CortexDB LLM-powered Database Server
+   Description=OxideDB LLM-powered Database Server
    After=network.target
    
    [Service]
    Type=simple
-   User=cortexdb
-   Group=cortexdb
-   WorkingDirectory=/opt/cortexdb
-   ExecStart=/usr/local/bin/cortexdb
+   User=oxidedb
+   Group=oxidedb
+   WorkingDirectory=/opt/oxidedb
+   ExecStart=/usr/local/bin/oxidedb
    Restart=always
    RestartSec=10
    Environment=RUST_LOG=info
-   EnvironmentFile=/opt/cortexdb/.env
+   EnvironmentFile=/opt/oxidedb/.env
    
    [Install]
    WantedBy=multi-user.target
@@ -89,18 +89,18 @@ Push your code to GitHub and the workflow will automatically build Linux binarie
 
 3. **Create user and directories:**
    ```bash
-   sudo useradd -r -s /bin/false cortexdb
-   sudo mkdir -p /opt/cortexdb/data
-   sudo chown -R cortexdb:cortexdb /opt/cortexdb
-   sudo cp .env /opt/cortexdb/
+   sudo useradd -r -s /bin/false oxidedb
+   sudo mkdir -p /opt/oxidedb/data
+   sudo chown -R oxidedb:oxidedb /opt/oxidedb
+   sudo cp .env /opt/oxidedb/
    ```
 
 4. **Enable and start service:**
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable cortexdb
-   sudo systemctl start cortexdb
-   sudo systemctl status cortexdb
+   sudo systemctl enable oxidedb
+   sudo systemctl start oxidedb
+   sudo systemctl status oxidedb
    ```
 
 ## Nginx Reverse Proxy (Optional)
@@ -112,7 +112,7 @@ Push your code to GitHub and the workflow will automatically build Linux binarie
 
 2. **Create Nginx configuration:**
    ```bash
-   sudo nano /etc/nginx/sites-available/cortexdb
+   sudo nano /etc/nginx/sites-available/oxidedb
    ```
 
 3. **Add configuration:**
@@ -133,7 +133,7 @@ Push your code to GitHub and the workflow will automatically build Linux binarie
 
 4. **Enable site:**
    ```bash
-   sudo ln -s /etc/nginx/sites-available/cortexdb /etc/nginx/sites-enabled/
+   sudo ln -s /etc/nginx/sites-available/oxidedb /etc/nginx/sites-enabled/
    sudo nginx -t
    sudo systemctl reload nginx
    ```
@@ -161,17 +161,17 @@ curl -X POST http://localhost:3030/auth/login \
 
 1. **Check logs:**
    ```bash
-   sudo journalctl -u cortexdb -f
+   sudo journalctl -u oxidedb -f
    ```
 
 2. **Check file permissions:**
    ```bash
-   ls -la /opt/cortexdb/
+   ls -la /opt/oxidedb/
    ```
 
 3. **Verify environment variables:**
    ```bash
-   sudo systemctl show cortexdb --property=Environment
+   sudo systemctl show oxidedb --property=Environment
    ```
 
 ## Security Considerations
@@ -188,4 +188,4 @@ curl -X POST http://localhost:3030/auth/login \
 
 3. **Use HTTPS in production with SSL certificates**
 
-4. **Regularly update the system and CortexDB**
+4. **Regularly update the system and oxidedb**

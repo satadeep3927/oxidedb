@@ -1,8 +1,8 @@
 use crate::auth::AuthManager;
 use crate::client::openai::OpenAIClient;
-use crate::error::{CortexError, Result};
+use crate::error::{OxideError, Result};
 use crate::managers::database::DatabaseManager;
-use crate::models::{QueryRequest, LoginRequest, QueryMode as ModelsQueryMode, CreateUserRequest};
+use crate::models::{CreateUserRequest, LoginRequest, QueryMode as ModelsQueryMode, QueryRequest};
 use serde_json::Value;
 use std::io::{self, Write};
 use std::sync::Arc;
@@ -52,18 +52,18 @@ impl CliInterface {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        println!("Welcome to CortexDB Interactive CLI");
+        println!("Welcome to OxideDB Interactive CLI");
         println!("Type '/help' for available commands");
         self.print_status();
 
         loop {
             self.print_prompt();
-            
+
             let mut input = String::new();
             if io::stdin().read_line(&mut input).is_err() {
                 continue;
             }
-            
+
             let input = input.trim();
             if input.is_empty() {
                 continue;
@@ -86,16 +86,21 @@ impl CliInterface {
             QueryMode::Sql => "sql",
             QueryMode::Ai => "ai",
         };
-        
-        let context = if let (Some(ns), Some(db)) = (&self.current_namespace, &self.current_database) {
-            format!("{}:{}", ns, db)
-        } else {
-            "no-context".to_string()
-        };
 
-        let user_indicator = self.username.as_ref().map(|u| format!("@{}", u)).unwrap_or_else(|| "@guest".to_string());
-        
-        print!("cortexdb{}[{}]{}> ", user_indicator, context, mode_indicator);
+        let context =
+            if let (Some(ns), Some(db)) = (&self.current_namespace, &self.current_database) {
+                format!("{}:{}", ns, db)
+            } else {
+                "no-context".to_string()
+            };
+
+        let user_indicator = self
+            .username
+            .as_ref()
+            .map(|u| format!("@{}", u))
+            .unwrap_or_else(|| "@guest".to_string());
+
+        print!("oxidedb{}[{}]{}> ", user_indicator, context, mode_indicator);
         io::stdout().flush().unwrap();
     }
 
@@ -103,15 +108,30 @@ impl CliInterface {
         println!();
         println!("Current Status:");
         println!("   Mode: {}", self.current_mode);
-        println!("   User: {}", self.username.as_ref().unwrap_or(&"Not logged in".to_string()));
-        println!("   Namespace: {}", self.current_namespace.as_ref().unwrap_or(&"None".to_string()));
-        println!("   Database: {}", self.current_database.as_ref().unwrap_or(&"None".to_string()));
+        println!(
+            "   User: {}",
+            self.username
+                .as_ref()
+                .unwrap_or(&"Not logged in".to_string())
+        );
+        println!(
+            "   Namespace: {}",
+            self.current_namespace
+                .as_ref()
+                .unwrap_or(&"None".to_string())
+        );
+        println!(
+            "   Database: {}",
+            self.current_database
+                .as_ref()
+                .unwrap_or(&"None".to_string())
+        );
         println!();
     }
 
     async fn handle_command(&mut self, command: &str) -> Result<()> {
         let parts: Vec<&str> = command.split_whitespace().collect();
-        
+
         match parts.first().copied() {
             Some("/help") => self.show_help(),
             Some("/set") => self.handle_set_command(&parts[1..]).await?,
@@ -125,15 +145,18 @@ impl CliInterface {
                 println!("Goodbye!");
                 std::process::exit(0);
             }
-            _ => println!("Unknown command: {}. Type '/help' for available commands.", command),
+            _ => println!(
+                "Unknown command: {}. Type '/help' for available commands.",
+                command
+            ),
         }
-        
+
         Ok(())
     }
 
     fn show_help(&self) {
         println!();
-        println!("CortexDB CLI Commands:");
+        println!("OxideDB CLI Commands:");
         println!();
         println!("Settings:");
         println!("   /set ai              - Switch to Query Engine mode");
@@ -141,7 +164,7 @@ impl CliInterface {
         println!();
         println!("Authentication:");
         println!("   /register <username> - Register a new user account");
-        println!("   /login <username>    - Login to CortexDB");
+        println!("   /login <username>    - Login to OxideDB");
         println!("   /logout              - Logout from current session");
         println!();
         println!("Database Context:");
@@ -190,15 +213,14 @@ impl CliInterface {
         print!("Password for new user {}: ", username);
         io::stdout().flush().unwrap();
 
-        let password = rpassword::read_password().map_err(|_| {
-            CortexError::InvalidRequest("Failed to read password".to_string())
-        })?;
+        let password = rpassword::read_password()
+            .map_err(|_| OxideError::InvalidRequest("Failed to read password".to_string()))?;
 
         print!("Confirm password: ");
         io::stdout().flush().unwrap();
 
         let confirm_password = rpassword::read_password().map_err(|_| {
-            CortexError::InvalidRequest("Failed to read password confirmation".to_string())
+            OxideError::InvalidRequest("Failed to read password confirmation".to_string())
         })?;
 
         if password != confirm_password {
@@ -211,15 +233,18 @@ impl CliInterface {
         io::stdout().flush().unwrap();
 
         let mut namespaces_input = String::new();
-        io::stdin().read_line(&mut namespaces_input).map_err(|_| {
-            CortexError::InvalidRequest("Failed to read namespaces".to_string())
-        })?;
+        io::stdin()
+            .read_line(&mut namespaces_input)
+            .map_err(|_| OxideError::InvalidRequest("Failed to read namespaces".to_string()))?;
 
         let namespaces_input = namespaces_input.trim();
         let namespaces = if namespaces_input.is_empty() {
             vec!["default".to_string()]
         } else {
-            namespaces_input.split(',').map(|s| s.trim().to_string()).collect()
+            namespaces_input
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect()
         };
 
         // Get root credentials for registration
@@ -228,20 +253,22 @@ impl CliInterface {
         io::stdout().flush().unwrap();
 
         let mut root_username = String::new();
-        io::stdin().read_line(&mut root_username).map_err(|_| {
-            CortexError::InvalidRequest("Failed to read root username".to_string())
-        })?;
+        io::stdin()
+            .read_line(&mut root_username)
+            .map_err(|_| OxideError::InvalidRequest("Failed to read root username".to_string()))?;
         let root_username = root_username.trim();
 
         print!("Root password: ");
         io::stdout().flush().unwrap();
 
-        let root_password = rpassword::read_password().map_err(|_| {
-            CortexError::InvalidRequest("Failed to read root password".to_string())
-        })?;
+        let root_password = rpassword::read_password()
+            .map_err(|_| OxideError::InvalidRequest("Failed to read root password".to_string()))?;
 
         // Verify root credentials
-        if !self.auth_manager.verify_root_auth(root_username, &root_password) {
+        if !self
+            .auth_manager
+            .verify_root_auth(root_username, &root_password)
+        {
             println!("Error: Invalid root credentials!");
             return Ok(());
         }
@@ -277,9 +304,8 @@ impl CliInterface {
         print!("Password for {}: ", username);
         io::stdout().flush().unwrap();
 
-        let password = rpassword::read_password().map_err(|_| {
-            CortexError::InvalidRequest("Failed to read password".to_string())
-        })?;
+        let password = rpassword::read_password()
+            .map_err(|_| OxideError::InvalidRequest("Failed to read password".to_string()))?;
 
         let login_request = LoginRequest {
             username: username.to_string(),
@@ -291,7 +317,7 @@ impl CliInterface {
                 self.auth_token = Some(response.token);
                 self.username = Some(response.user_id);
                 println!("Login successful! Welcome, {}", username);
-                
+
                 if !response.namespaces.is_empty() {
                     println!("Available namespaces: {}", response.namespaces.join(", "));
                 }
@@ -324,8 +350,11 @@ impl CliInterface {
         // TODO: Validate that user has access to this namespace/database
         self.current_namespace = Some(namespace.clone());
         self.current_database = Some(database.clone());
-        
-        println!("Switched to namespace: {}, database: {}", namespace, database);
+
+        println!(
+            "Switched to namespace: {}, database: {}",
+            namespace, database
+        );
         Ok(())
     }
 
@@ -336,7 +365,7 @@ impl CliInterface {
                     println!("Please login first");
                     return Ok(());
                 }
-                
+
                 match self.db_manager.list_namespaces() {
                     Ok(namespaces) => {
                         println!("Available namespaces:");
@@ -363,13 +392,15 @@ impl CliInterface {
                 }
             }
             Some(&"tables") => {
-                if let (Some(namespace), Some(database)) = (&self.current_namespace, &self.current_database) {
+                if let (Some(namespace), Some(database)) =
+                    (&self.current_namespace, &self.current_database)
+                {
                     match self.db_manager.get_database(namespace, database) {
                         Ok(db) => {
                             let query_result = db.execute_query(
-                                "SELECT name FROM sqlite_master WHERE type='table';"
+                                "SELECT name FROM sqlite_master WHERE type='table';",
                             );
-                            
+
                             match query_result {
                                 Ok(result) => {
                                     println!("Tables in {}.{}:", namespace, database);
@@ -389,7 +420,9 @@ impl CliInterface {
                         Err(e) => println!("Failed to access database: {}", e),
                     }
                 } else {
-                    println!("Please set namespace and database first with: /use <namespace> <database>");
+                    println!(
+                        "Please set namespace and database first with: /use <namespace> <database>"
+                    );
                 }
             }
             _ => {
@@ -428,10 +461,15 @@ impl CliInterface {
 
         let result = if self.current_mode == QueryMode::Ai {
             // AI mode: convert natural language to SQL first
-            let schema_info = database.get_schema_info().unwrap_or_else(|_| "No schema information available.".to_string());
-            let sql_query = self.llm_client.generate_sql(&query_request.query, &schema_info).await?;
+            let schema_info = database
+                .get_schema_info()
+                .unwrap_or_else(|_| "No schema information available.".to_string());
+            let sql_query = self
+                .llm_client
+                .generate_sql(&query_request.query, &schema_info)
+                .await?;
             println!("Generated SQL: {}", sql_query);
-            
+
             // Handle multiple SQL statements
             self.execute_multiple_sql_statements(&database, &sql_query)?
         } else {
@@ -453,27 +491,37 @@ impl CliInterface {
             Value::Array(rows) => {
                 println!("Query Results ({} rows):", rows.len());
                 println!();
-                
+
                 // Print as table if possible
                 if let Some(first_row) = rows.first() {
                     if let Value::Object(obj) = first_row {
                         // Print headers
                         let headers: Vec<String> = obj.keys().map(|k| k.clone()).collect();
                         println!("   {}", headers.join(" | "));
-                        println!("   {}", headers.iter().map(|h| "-".repeat(h.len())).collect::<Vec<_>>().join("-+-"));
-                        
+                        println!(
+                            "   {}",
+                            headers
+                                .iter()
+                                .map(|h| "-".repeat(h.len()))
+                                .collect::<Vec<_>>()
+                                .join("-+-")
+                        );
+
                         // Print rows
                         for row in rows {
                             if let Value::Object(row_obj) = row {
-                                let values: Vec<String> = headers.iter()
+                                let values: Vec<String> = headers
+                                    .iter()
                                     .map(|h| {
-                                        row_obj.get(h)
+                                        row_obj
+                                            .get(h)
                                             .map(|v| match v {
                                                 Value::String(s) => s.clone(),
                                                 Value::Number(n) => n.to_string(),
                                                 Value::Bool(b) => b.to_string(),
                                                 Value::Null => "NULL".to_string(),
-                                                _ => serde_json::to_string(v).unwrap_or_else(|_| "?".to_string()),
+                                                _ => serde_json::to_string(v)
+                                                    .unwrap_or_else(|_| "?".to_string()),
                                             })
                                             .unwrap_or_else(|| "NULL".to_string())
                                     })
@@ -491,13 +539,20 @@ impl CliInterface {
                 }
             }
             _ => {
-                println!("Query Result: {}", serde_json::to_string_pretty(result).unwrap_or_else(|_| "Unknown".to_string()));
+                println!(
+                    "Query Result: {}",
+                    serde_json::to_string_pretty(result).unwrap_or_else(|_| "Unknown".to_string())
+                );
             }
         }
         println!();
     }
 
-    fn execute_multiple_sql_statements(&self, database: &crate::database::Database, sql: &str) -> Result<Value> {
+    fn execute_multiple_sql_statements(
+        &self,
+        database: &crate::database::Database,
+        sql: &str,
+    ) -> Result<Value> {
         // Split SQL statements by semicolon and filter out empty ones
         let statements: Vec<&str> = sql
             .split(';')
@@ -516,10 +571,15 @@ impl CliInterface {
 
         // Multiple statements - execute them one by one
         let mut last_result = Value::Array(vec![]);
-        
+
         for (i, statement) in statements.iter().enumerate() {
-            println!("Executing statement {}/{}: {}", i + 1, statements.len(), statement);
-            
+            println!(
+                "Executing statement {}/{}: {}",
+                i + 1,
+                statements.len(),
+                statement
+            );
+
             match database.execute_query(statement) {
                 Ok(result) => {
                     last_result = result;
@@ -531,7 +591,7 @@ impl CliInterface {
                 }
             }
         }
-        
+
         println!("All {} statements executed successfully", statements.len());
         Ok(last_result)
     }

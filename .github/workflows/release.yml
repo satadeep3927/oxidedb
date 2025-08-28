@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-release:
+    name: Build Release ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            ext: .exe
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            ext: .exe
+
+          # macOS
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            ext: ""
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            ext: ""
+
+          # Linux
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            ext: ""
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            ext: ""
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            ext: ""
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev build-essential protobuf-compiler
+
+          # Install cross-compilation tools for ARM64
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
+
+          # Install musl tools for musl targets
+          if [[ "${{ matrix.target }}" == *"musl"* ]]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: brew install protobuf
+
+      - name: Install Windows dependencies
+        if: matrix.os == 'windows-latest'
+        run: choco install protoc
+        shell: pwsh
+
+      - name: Configure cross-compilation
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          case "${{ matrix.target }}" in
+            aarch64-unknown-linux-gnu)
+              echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+              echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+              echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+              ;;
+            x86_64-unknown-linux-musl)
+              # Use built-in musl support
+              echo "CC_x86_64_unknown_linux_musl=musl-gcc" >> $GITHUB_ENV
+              ;;
+          esac
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Create dist directory
+        run: mkdir -p dist
+        shell: bash
+
+      - name: Prepare binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cp target/${{ matrix.target }}/release/oxidedb${{ matrix.ext }} dist/oxidedb-${{ matrix.target }}${{ matrix.ext }}
+          strip dist/oxidedb-${{ matrix.target }}${{ matrix.ext }} || true
+
+      - name: Prepare binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          Copy-Item "target\${{ matrix.target }}\release\oxidedb${{ matrix.ext }}" "dist\oxidedb-${{ matrix.target }}${{ matrix.ext }}"
+        shell: pwsh
+
+      - name: Generate checksum
+        run: |
+          cd dist
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            powershell -Command "Get-FileHash oxidedb-${{ matrix.target }}${{ matrix.ext }} -Algorithm SHA256 | Select-Object Hash | Format-Table -HideTableHeaders" | tr -d ' ' > oxidedb-${{ matrix.target }}${{ matrix.ext }}.sha256
+          else
+            sha256sum oxidedb-${{ matrix.target }}${{ matrix.ext }} > oxidedb-${{ matrix.target }}${{ matrix.ext }}.sha256
+          fi
+        shell: bash
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/oxidedb-${{ matrix.target }}${{ matrix.ext }}
+            dist/oxidedb-${{ matrix.target }}${{ matrix.ext }}.sha256
+          body: |
+            ## OxideDB ${{ github.ref_name }} - AI-Powered Database with Cross-Platform Support
+
+            ### What's New
+            * Cross-platform release for Windows, macOS, and Linux
+            * AI-powered natural language querying
+            * High-performance gRPC API
+            * Interactive CLI interface
+            * Multi-tenant architecture with JWT authentication
+
+            ### Download Instructions
+            Choose the appropriate binary for your platform:
+
+            #### Windows
+            - `oxidedb-x86_64-pc-windows-msvc.exe` - Windows x64
+            - `oxidedb-aarch64-pc-windows-msvc.exe` - Windows ARM64
+
+            #### macOS
+            - `oxidedb-x86_64-apple-darwin` - macOS Intel
+            - `oxidedb-aarch64-apple-darwin` - macOS Apple Silicon
+
+            #### Linux
+            - `oxidedb-x86_64-unknown-linux-gnu` - Linux x64 (glibc)
+            - `oxidedb-aarch64-unknown-linux-gnu` - Linux ARM64 (glibc)
+            - `oxidedb-x86_64-unknown-linux-musl` - Linux x64 (static)
+
+            ### Quick Start
+            ```bash
+            # Make executable (Linux/macOS)
+            chmod +x oxidedb-*
+            
+            # Run CLI mode
+            ./oxidedb cli
+            
+            # Or start gRPC server
+            ./oxidedb
+            ```
+
+            **Verify downloads using the provided `.sha256` checksum files.**
