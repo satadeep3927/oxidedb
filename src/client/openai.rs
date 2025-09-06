@@ -65,14 +65,14 @@ impl OpenAIClient {
             return false;
         }
 
-        // Check if token was refreshed recently (within 50 minutes - tokens usually last 1 hour)
+        // Check if token was refreshed recently (within 10 minutes)
         let last_refresh = match self.last_token_refresh.lock() {
             Ok(time) => *time,
             Err(_) => return false,
         };
 
         let token_age = last_refresh.elapsed();
-        token_age < Duration::from_secs(3000) // 50 minutes
+        token_age < Duration::from_secs(600) // 10 minutes
     }
 
     pub async fn exchange_copilot_token(&self) -> Result<()> {
